@@ -9,7 +9,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-SERVICE_TOKEN = re.compile(r"\b[a-z][a-z0-9]*(?:-[a-z0-9]+)+\b")
+SERVICE_TOKEN = re.compile(r"(?<![@#\w-])[a-z][a-z0-9]*(?:-[a-z0-9]+)+\b")
 ADR_TOKEN = re.compile(r"\bADR-\d+\b")
 
 # Common English/engineering hyphenated compound words that are not microservice names
@@ -38,14 +38,17 @@ ALLOWED_STOP_HYPHENS = {
     "short-circuit",
     "fintech-prod",
     "sandbox-tenant",
+    "live-session",
 }
 
 
 def accepts(sentence: str, answer: dict[str, Any]) -> tuple[bool, str]:
     """Verify that `sentence` does not invent services, ADRs, or false impact claims."""
-    known_services = set(answer.get("services", [])) | {
-        hop for path in answer.get("paths", []) for hop in path
-    }
+    known_services = (
+        set(answer.get("services", []))
+        | set(answer.get("allowed_tokens", []))
+        | {hop for path in answer.get("paths", []) for hop in path}
+    )
     if answer.get("target_service"):
         known_services.add(str(answer["target_service"]))
     if answer.get("origin_service"):

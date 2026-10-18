@@ -7,7 +7,7 @@
 - 03: Track 03 Company Brain — GraphRAG Corpus Ingestion, Decision Lineage & On-Call Routing (`Q5`–`Q7`)
 - 04: Track 02 Persistent Agent Memory & Cross-Agent Handoff State (`Q8`–`Q10`)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## MCP Tool Surface (Zero LLM-Written Cypher)
 
@@ -24,8 +24,8 @@
 
 ## Acceptance Criteria
 
-- [ ] CodePulse MCP Server registers only the 10 strongly typed tools (plus tenant listing), enforcing parameter bounds (`depth <= 4`, `limit <= 20`) and running `resolve_entity` (`Q0`) before every read/write tool call.
-- [ ] **Agent 1 (`memory_scout`)** runs first on every request, invoking `recall_memory` and `read_handoffs` to surface prior session findings before deep traversals run.
-- [ ] **Agent 2 (`topology_analyst`)** executes `pr_impact_radius`, `blast_radius`, `path_between`, and `load_bearing_services`, then records a structured `:Handoff` node in FalkorDB for Agent 3.
-- [ ] **Agent 3 (`release_governor`)** reads Agent 2's `:Handoff` from FalkorDB, invokes `trace_decision_lineage` and `who_to_notify`, and writes the synthesized governance verdict back as a `:Finding` via `record_finding`.
-- [ ] Every agent response emits a structured execution trace (tool name, validated parameters, latency in ms, row count, epistemic outcome badge, and `accepts()` hallucination guard status `PASS` or `FALLBACK`).
+- [x] CodePulse MCP Server registers only the 10 strongly typed tools (plus tenant listing), enforcing parameter bounds (`depth <= 4`, `limit <= 20`) and running `resolve_entity` (`Q0`) before every read/write tool call.
+- [x] **Agent 1 (`memory_scout`)** runs first on every request, invoking `recall_memory` and `read_handoffs` to surface prior session findings before deep traversals run.
+- [x] **Agent 2 (`topology_analyst`)** executes `pr_impact_radius`, `blast_radius`, `path_between`, and `load_bearing_services`, then records a structured `:Handoff` node in FalkorDB for Agent 3.
+- [x] **Agent 3 (`release_governor`)** reads Agent 2's `:Handoff` from FalkorDB, invokes `trace_decision_lineage` and `who_to_notify`, and writes the synthesized governance verdict back as a `:Finding` via `record_finding`.
+- [x] Every agent response emits a structured execution trace (tool name, validated parameters, latency in ms, row count, epistemic outcome badge, and `accepts()` hallucination guard status `PASS` or `FALLBACK`).
