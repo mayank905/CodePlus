@@ -1,8 +1,8 @@
 """Locked-Ontology Corpus Ingestion (`ingestion/doc_ingestor.py`) — Track 03 Company Brain.
 
 Defines the locked GraphRAG-SDK ontology (`:Service`, `:ADR`, `:SlackThread`, `:Person`, `:Incident`)
-and ingests markdown engineering artifacts (`docs/*.md`) into FalkorDB so extracted `:ADR` and
-`:SlackThread` nodes link cleanly to canonical `:Service` nodes.
+and ingests all 5 markdown engineering artifacts (`docs/*.md`) into FalkorDB so extracted `:ADR`,
+`:Incident`, and `:SlackThread` nodes link cleanly to canonical `:Service` and `:Person` nodes.
 """
 
 from __future__ import annotations
@@ -50,7 +50,6 @@ def build_locked_ontology() -> dict[str, Any]:
         ],
     }
 
-    # If graphrag_sdk is installed in the environment, also construct its native Ontology object
     try:
         from graphrag_sdk import Entity, Ontology, Relation  # type: ignore
         from graphrag_sdk.attribute import Attribute, AttributeType  # type: ignore
@@ -80,11 +79,28 @@ def build_locked_ontology() -> dict[str, Any]:
                         Attribute("summary", AttributeType.STRING, unique=False, required=True),
                     ],
                 ),
+                Entity(
+                    label="Person",
+                    attributes=[
+                        Attribute("handle", AttributeType.STRING, unique=True, required=True),
+                        Attribute("name", AttributeType.STRING, unique=False, required=False),
+                    ],
+                ),
+                Entity(
+                    label="Incident",
+                    attributes=[
+                        Attribute("id", AttributeType.STRING, unique=True, required=True),
+                        Attribute("severity", AttributeType.STRING, unique=False, required=True),
+                        Attribute("summary", AttributeType.STRING, unique=False, required=True),
+                    ],
+                ),
             ],
             relations=[
                 Relation("GOVERNS", "ADR", "Service"),
+                Relation("APPROVED", "Person", "ADR"),
                 Relation("DISCUSSES", "SlackThread", "ADR"),
                 Relation("DISCUSSES", "SlackThread", "Service"),
+                Relation("AFFECTED", "Incident", "Service"),
             ],
         )
         ontology_dict["graphrag_sdk_ontology"] = sdk_ontology
@@ -118,6 +134,33 @@ def _parse_adr_markdown(text: str) -> Optional[dict[str, Any]]:
         "service": service_match.group(1).strip() if service_match else "payments-api",
         "approvers": approvers,
         "decision": decision_match.group(1).strip() if decision_match else title,
+    }
+
+
+def _parse_incident_markdown(text: str) -> Optional[dict[str, Any]]:
+    inc_match = re.search(r"\*\*Incident ID:\*\*\s*(INC-\d+)", text)
+    if not inc_match:
+        return None
+    inc_id = inc_match.group(1).strip()
+    sev_match = re.search(r"\*\*Severity:\*\*\s*([^\n]+)", text)
+    ts_match = re.search(r"\*\*Timestamp:\*\*\s*(\d+)", text)
+    root_match = re.search(r"\*\*Root Cause Service:\*\*\s*`?([a-z0-9-]+)`?", text)
+    impacted_match = re.search(r"\*\*Impacted Services:\*\*\s*([^\n]+)", text)
+    summary_match = re.search(r"## Summary\s+([^\n]+(?:\n[^\n#]+)*)", text)
+
+    impacted_services = (
+        re.findall(r"`([a-z0-9-]+)`", impacted_match.group(1))
+        if impacted_match
+        else []
+    )
+    root_service = root_match.group(1).strip() if root_match else ""
+    return {
+        "id": inc_id,
+        "severity": sev_match.group(1).strip() if sev_match else "SEV-1",
+        "at": int(ts_match.group(1)) if ts_match else 1757408000,
+        "root_service": root_service,
+        "impacted_services": impacted_services,
+        "summary": summary_match.group(1).strip() if summary_match else inc_id,
     }
 
 
@@ -161,6 +204,7 @@ def ingest_markdown_corpus(
     md_files = sorted(docs_path.glob("*.md"))
 
     adrs_merged: list[str] = []
+    incidents_merged: list[str] = []
     threads_merged: list[str] = []
 
     for md_file in md_files:
@@ -185,6 +229,25 @@ def ingest_markdown_corpus(
                 adr_data,
             )
             adrs_merged.append(adr_data["id"])
+            continue
+
+        inc_data = _parse_incident_markdown(content)
+        if inc_data:
+            g.query(
+                """
+                MERGE (inc:Incident {id: $id})
+                SET inc.at = $at,
+                    inc.severity = $severity,
+                    inc.summary = $summary
+                WITH inc
+                UNWIND $impacted_services AS svc_name
+                MATCH (s:Service {name: svc_name})
+                MERGE (inc)-[af:AFFECTED]->(s)
+                SET af.root_cause = (svc_name = $root_service)
+                """,
+                inc_data,
+            )
+            incidents_merged.append(inc_data["id"])
             continue
 
         slack_threads = _parse_slack_markdown(content)
@@ -215,6 +278,7 @@ def ingest_markdown_corpus(
         "tenant_id": tenant_id,
         "documents_processed": len(md_files),
         "adrs_merged": adrs_merged,
+        "incidents_merged": incidents_merged,
         "slack_threads_merged": threads_merged,
     }
 
@@ -224,7 +288,7 @@ def verify_ingestion(
     client: Optional[FalkorDB] = None,
     graph: Optional[Graph] = None,
 ) -> dict[str, Any]:
-    """Run read-only checks confirming all ingested ADRs and SlackThreads link to canonical Services."""
+    """Run read-only checks confirming all ingested ADRs, Incidents, and SlackThreads link to Services."""
     g = graph or select_tenant_graph(tenant_id, client=client)
     rows = g.ro_query(
         """
@@ -237,11 +301,25 @@ def verify_ingestion(
         """
     ).result_set
 
+    inc_rows = g.ro_query(
+        """
+        MATCH (inc:Incident)-[af:AFFECTED]->(s:Service)
+        WHERE ID(af) >= 0
+        RETURN inc.id AS incident_id, count(s) AS affected_service_count
+        ORDER BY inc.id ASC
+        """
+    ).result_set
+
     linked_adrs = [
         {"adr_id": r[0], "service": r[1], "thread_count": r[2]} for r in rows
     ]
+    linked_incidents = [
+        {"incident_id": r[0], "affected_service_count": r[1]} for r in inc_rows
+    ]
     return {
-        "valid": len(linked_adrs) > 0,
+        "valid": len(linked_adrs) > 0 and len(linked_incidents) > 0,
         "linked_adr_count": len(linked_adrs),
         "linked_adrs": linked_adrs,
+        "linked_incident_count": len(linked_incidents),
+        "linked_incidents": linked_incidents,
     }

@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import pytest
-
-from db.connection import FINTECH_PROD_TENANT, get_client, select_tenant_graph
+from db.connection import FINTECH_PROD_TENANT, select_tenant_graph
 from db.queries import (
     Q5_WHO_TO_NOTIFY_TEMPLATE,
     Q6_RECENT_CHANGES_TEMPLATE,
@@ -13,15 +11,8 @@ from db.queries import (
     trace_decision_lineage,
     who_to_notify,
 )
-from db.seed import DEMO_NOW_TS, seed_all
+from db.seed import DEMO_NOW_TS
 from ingestion.doc_ingestor import build_locked_ontology, ingest_markdown_corpus, verify_ingestion
-
-
-@pytest.fixture(scope="module")
-def db_client():
-    client = get_client()
-    seed_all(client=client, reset=True)
-    return client
 
 
 def test_locked_ontology_and_markdown_corpus_ingestion(db_client):
@@ -31,13 +22,15 @@ def test_locked_ontology_and_markdown_corpus_ingestion(db_client):
     )
 
     ingested = ingest_markdown_corpus(FINTECH_PROD_TENANT, client=db_client)
-    assert ingested["documents_processed"] >= 3
+    assert ingested["documents_processed"] == 5
     assert "ADR-014" in ingested["adrs_merged"]
-    assert "ADR-015" in ingested["adrs_merged"]
+    assert "INC-99" in ingested["incidents_merged"]
+    assert "SLACK-ARCH-881" in ingested["slack_threads_merged"]
 
     verification = verify_ingestion(FINTECH_PROD_TENANT, client=db_client)
     assert verification["valid"] is True
     assert verification["linked_adr_count"] >= 2
+    assert verification["linked_incident_count"] >= 2
 
 
 def test_q5_who_to_notify_in_blast_radius(db_client):
@@ -104,4 +97,4 @@ def test_q5_to_q7_explain_plans_succeed(db_client):
     ]:
         plan = g.explain(cypher, params)
         plan_text = "\n".join(str(line) for line in plan)
-        assert len(plan_text.strip()) > 0
+        assert "Index Scan" in plan_text, f"Expected Index Scan in plan:\n{plan_text}"

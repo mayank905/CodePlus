@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from db.connection import FINTECH_PROD_TENANT, SANDBOX_TENANT, get_client, select_tenant_graph
+from db.connection import FINTECH_PROD_TENANT, SANDBOX_TENANT, select_tenant_graph
 from db.queries import (
     Q8_RECALL_MEMORY,
     Q9_RECORD_FINDING,
@@ -15,14 +15,7 @@ from db.queries import (
     record_finding,
     upsert_handoff,
 )
-from db.seed import DEMO_NOW_TS, seed_all
-
-
-@pytest.fixture(scope="module")
-def db_client():
-    client = get_client()
-    seed_all(client=client, reset=True)
-    return client
+from db.seed import DEMO_NOW_TS
 
 
 def test_q9_record_and_q8_recall_memory_with_categories(db_client):
@@ -214,4 +207,4 @@ def test_q8_to_q10_explain_plans_and_limitation_compliance(db_client):
     ]:
         plan = g.explain(cypher, params)
         plan_text = "\n".join(str(line) for line in plan)
-        assert len(plan_text.strip()) > 0
+        assert "Index Scan" in plan_text, f"Expected Index Scan in plan:\n{plan_text}"

@@ -48,7 +48,8 @@ RETURN s.name AS name, s.tier AS tier, s.repo AS repo, s.language AS language
 
 Q0_RESOLVE_CODE_MODULE = """
 MATCH (m:CodeModule {path: $path})
-OPTIONAL MATCH (m)-[:PART_OF]->(s:Service)
+OPTIONAL MATCH (m)-[p:PART_OF]->(s:Service)
+WHERE ID(p) >= 0
 RETURN m.path AS path, m.complexity AS complexity, s.name AS service
 """
 
@@ -671,14 +672,16 @@ def recent_changes_in_radius(
         }
 
     rows: list[dict[str, Any]] = []
-    seen_prs: set[int] = set()
+    seen_pr_modules: set[tuple[int, str]] = set()
     services: list[str] = []
 
     for r in raw_rows:
         pr_num = int(r[1])
-        if pr_num in seen_prs:
+        mod_path = str(r[6])
+        key = (pr_num, mod_path)
+        if key in seen_pr_modules:
             continue
-        seen_prs.add(pr_num)
+        seen_pr_modules.add(key)
         svc = r[0]
         if svc not in services:
             services.append(svc)
@@ -690,7 +693,7 @@ def recent_changes_in_radius(
                 "summary": r[3],
                 "changed_at": r[4],
                 "author_handle": r[5],
-                "module_path": r[6],
+                "module_path": mod_path,
                 "via_path": r[7],
             }
         )
@@ -710,8 +713,10 @@ def recent_changes_in_radius(
 # ---------------------------------------------------------------------------
 
 Q7_TRACE_DECISION_LINEAGE = """
-MATCH (s:Service {name: $service})<-[g:GOVERNS]-(adr:ADR {status: 'active'})
-WHERE ID(g) >= 0
+MATCH (s:Service {name: $service})
+WITH s
+MATCH (s)<-[g:GOVERNS]-(adr:ADR)
+WHERE ID(g) >= 0 AND adr.status = 'active'
 OPTIONAL MATCH (approver:Person)-[ap:APPROVED]->(adr)
 WHERE ID(ap) >= 0
 OPTIONAL MATCH (thread:SlackThread)-[d:DISCUSSES]->(adr)
@@ -757,7 +762,7 @@ def trace_decision_lineage(
             "outcome": "not_in_graph",
             "target_service": resolved["identifier"],
             "warning": NOT_IN_GRAPH_WARNING,
-            "services": [resolved["identifier"]],
+            "services": [],
             "adrs": [],
             "rows": [],
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
@@ -789,7 +794,9 @@ def trace_decision_lineage(
 # ---------------------------------------------------------------------------
 
 Q8_RECALL_MEMORY = """
-MATCH (f:Finding)-[ab:ABOUT_SERVICE]->(s:Service {name: $service})
+MATCH (s:Service {name: $service})
+WITH s
+MATCH (f:Finding)-[ab:ABOUT_SERVICE]->(s)
 WHERE ID(ab) >= 0 AND f.category IN $categories
 RETURN f.id AS finding_id,
        f.category AS category,
@@ -840,7 +847,7 @@ def recall_memory(
             "outcome": "not_in_graph",
             "target_service": resolved["identifier"],
             "warning": "No prior session findings recorded for this service.",
-            "services": [resolved["identifier"]],
+            "services": [],
             "rows": [],
             "latency_ms": round((time.perf_counter() - t0) * 1000, 2),
         }

@@ -2,12 +2,10 @@
 
 from __future__ import annotations
 
-import pytest
-
-from db.connection import FINTECH_PROD_TENANT, get_client, select_tenant_graph
+from db.connection import FINTECH_PROD_TENANT, select_tenant_graph
 from db.queries import (
     blast_radius,
-     get_q1_blast_radius_cypher,
+    get_q1_blast_radius_cypher,
     Q2_PR_IMPACT_RADIUS_TEMPLATE,
     Q3_PATH_BETWEEN,
     Q4_LOAD_BEARING_SERVICES,
@@ -15,15 +13,7 @@ from db.queries import (
     path_between,
     pr_impact_radius,
 )
-from db.seed import seed_all
 from guard import accepts, verify_or_fallback
-
-
-@pytest.fixture(scope="module")
-def db_client():
-    client = get_client()
-    seed_all(client=client, reset=True)
-    return client
 
 
 def test_q1_blast_radius_depth_1_vs_depth_4_and_parallel_edges(db_client):
@@ -188,8 +178,11 @@ def test_q1_to_q4_explain_plans_succeed(db_client):
         (q1_cypher, {"service": "payments-api"}),
         (q2_cypher, {"pr_number": 402}),
         (Q3_PATH_BETWEEN, {"from_service": "status-page", "to_service": "payments-api"}),
-        (Q4_LOAD_BEARING_SERVICES, {"limit": 5}),
     ]:
         plan = g.explain(cypher, params)
         plan_text = "\n".join(str(line) for line in plan)
-        assert len(plan_text.strip()) > 0
+        assert "Index Scan" in plan_text, f"Expected Index Scan in plan:\n{plan_text}"
+
+    # Q4 uses CALL algo.pageRank procedure
+    q4_plan = "\n".join(str(line) for line in g.explain(Q4_LOAD_BEARING_SERVICES, {"limit": 5}))
+    assert "ProcedureCall" in q4_plan
