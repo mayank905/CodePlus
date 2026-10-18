@@ -153,19 +153,32 @@ def render_war_room_app() -> None:
 
         st.markdown("---")
         st.markdown("**Free-Form Service / PR Query**")
-        custom_service = st.text_input("Service Name", value="payments-api")
+        custom_query = st.text_input("Service Name or PR (e.g. `payments-api` or `PR-402`)", value="payments-api")
         prefer_mem = st.checkbox("Prefer Recall from Graph Memory", value=False)
-        if st.button("Run Service Analysis", use_container_width=True):
+        if st.button("Run Service / PR Analysis", use_container_width=True):
             st.session_state["move1_comparison"] = None
-            st.session_state["active_result"] = run_service_query_workflow(
-                tenant_id=tenant_id,
-                service=custom_service.strip(),
-                depth=depth,
-                session_id="custom-query",
-                prefer_memory=prefer_mem,
-                simulated_llm_draft=simulated_draft,
-            )
-            st.session_state["active_title"] = f"Service Query: `{custom_service.strip()}` (depth={depth})"
+            q_str = custom_query.strip()
+            pr_cleaned = q_str.upper().removeprefix("PR-").removeprefix("PR#").removeprefix("#").strip()
+            if pr_cleaned.isdigit():
+                pr_num = int(pr_cleaned)
+                st.session_state["active_result"] = run_pr_review_workflow(
+                    tenant_id=tenant_id,
+                    pr_number=pr_num,
+                    depth=depth,
+                    session_id="custom-pr-query",
+                    simulated_llm_draft=simulated_draft,
+                )
+                st.session_state["active_title"] = f"PR Review: `PR #{pr_num}` (depth={depth})"
+            else:
+                st.session_state["active_result"] = run_service_query_workflow(
+                    tenant_id=tenant_id,
+                    service=q_str,
+                    depth=depth,
+                    session_id="custom-query",
+                    prefer_memory=prefer_mem,
+                    simulated_llm_draft=simulated_draft,
+                )
+                st.session_state["active_title"] = f"Service Query: `{q_str}` (depth={depth})"
 
         if st.button("Reset & Reseed Golden Graph", use_container_width=True):
             seed_all(reset=True)
