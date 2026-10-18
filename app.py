@@ -118,7 +118,7 @@ def render_war_room_app() -> None:
             st.session_state["active_result"] = m1["depth_4"] if depth == 4 else m1["depth_1"]
             st.session_state["active_title"] = m1["move"]
 
-        if st.button("Move 2: Review PR #402 (Lineage + On-Call)", use_container_width=True, type="primary"):
+        if st.button("Move 2: Review PR #402 (Lineage + On-Call)", use_container_width=True):
             st.session_state["move1_comparison"] = None
             st.session_state["active_result"] = run_pr_review_workflow(
                 tenant_id=tenant_id,
@@ -182,7 +182,21 @@ def render_war_room_app() -> None:
 
         if st.button("Reset & Reseed Golden Graph", use_container_width=True):
             seed_all(reset=True)
-            st.success("Reseeded `codepulse:fintech-prod` and `codepulse:sandbox-tenant`.")
+            st.session_state["active_result"] = None
+            st.session_state["active_title"] = ""
+            st.session_state["move1_comparison"] = None
+            st.success("Reseeded `codepulse:fintech-prod` and `codepulse:sandbox-tenant`. Previous results cleared.")
+
+    if st.session_state.get("active_result") is None:
+        with center_col:
+            st.subheader("2. Visual Path & Epistemic Outcome")
+            st.info("Select a Judge Demo Move or run a Service / PR query from the Left Panel to view graph results.")
+        with right_col:
+            st.subheader("3. Live MCP & Guard Audit Trace")
+            st.info("No active execution trace. Trigger an action from the Left Panel.")
+            with st.expander("Registered Typed MCP Tool Surface (12 Tools)", expanded=False):
+                st.dataframe(list_registered_tools(), use_container_width=True, hide_index=True)
+        return
 
     panels = build_war_room_panels(
         st.session_state["active_result"],

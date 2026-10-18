@@ -1,4 +1,72 @@
-﻿.venv/
+# Python virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Python bytecode & caches
 __pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Testing & coverage
 .pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.hypothesis/
+
+# Type checking & linters
+.mypy_cache/
+.dmypy.json
+.ruff_cache/
+.pyre/
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Environment variables & secrets
 .env
+.env.*
+!.env.example
+*.pem
+*.key
+service-account*.json
+
+# Streamlit local credentials/cache
+.streamlit/secrets.toml
+
+# Local scratch & ticket workspace
+.scratch/
+
+# IDE & OS files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Logs & local database dumps
+*.log
+dump.rdb
+*.rdb
