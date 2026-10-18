@@ -4,7 +4,7 @@
 
 **Blocked by:** 01: Multi-Tenant FalkorDB Schema, Golden Seed Estate & Entity Resolver (`Q0`)
 
-**Status:** ready-for-agent
+**Status:** done
 
 ## Core Query Constraints
 
@@ -27,8 +27,8 @@ RETURN f.id AS finding_id, f.at AS recorded_at
 
 ## Acceptance Criteria
 
-- [ ] `record_finding` (`Q9`) persists `:Finding` nodes (`episodic`, `semantic`, `procedural`) linked via `[:ABOUT_SERVICE]` using `WITH s LIMIT 1` before `CREATE` to obey FalkorDB's eager-`LIMIT` rule.
-- [ ] `recall_memory` (`Q8`) retrieves prior `:Finding` nodes for a service filtered by `f.category IN $categories` (avoiding `<>`), returning `answered_from_memory` with `session_id`, `recorded_by`, and `recorded_at` timestamps.
-- [ ] `upsert_handoff` (`Q10A`) and `read_handoffs` (`Q10B`) write and read ordered `:Handoff` coordination payloads (`from_agent`, `to_agent`, `status`, `payload`) linked to `:Service` by `pr_number`.
-- [ ] Multi-tenant isolation test proves a `:Finding` or `:Handoff` written to `codepulse:fintech-prod` is completely invisible when querying `codepulse:sandbox-tenant`.
-- [ ] `GRAPH.EXPLAIN` verification passes on `Q8`–`Q10`.
+- [x] `record_finding` (`Q9`) persists `:Finding` nodes (`episodic`, `semantic`, `procedural`) linked via `[:ABOUT_SERVICE]` using `WITH s LIMIT 1` before `CREATE` to obey FalkorDB's eager-`LIMIT` rule.
+- [x] `recall_memory` (`Q8`) retrieves prior `:Finding` nodes for a service filtered by `f.category IN $categories` (avoiding `<>`), returning `answered_from_memory` with `session_id`, `recorded_by`, and `recorded_at` timestamps.
+- [x] `upsert_handoff` (`Q10A`) and `read_handoffs` (`Q10B`) write and read ordered `:Handoff` coordination payloads (`from_agent`, `to_agent`, `status`, `payload`) linked to `:Service` by `pr_number`.
+- [x] Multi-tenant isolation test proves a `:Finding` or `:Handoff` written to `codepulse:fintech-prod` is completely invisible when querying `codepulse:sandbox-tenant`.
+- [x] `GRAPH.EXPLAIN` verification passes on `Q8`–`Q10`.
